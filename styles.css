@@ -1,293 +1,365 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
+// Variables globales
+let currentImage = null;
+let extractedDataList = [];
+let selectedFiles = [];
+let processingIndex = 0;
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const previewImage = document.getElementById('previewImage');
+const noImage = document.getElementById('noImage');
+const extractBtn = document.getElementById('extractBtn');
+const downloadExcelBtn = document.getElementById('downloadExcelBtn');
+const loading = document.getElementById('loading');
+const message = document.getElementById('message');
+const extractedData = document.getElementById('extractedData');
+const stats = document.getElementById('stats');
+const processedCount = document.getElementById('processedCount');
+const totalRecords = document.getElementById('totalRecords');
+const fileList = document.getElementById('fileList');
+const noFiles = document.getElementById('noFiles');
 
-body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    padding: 20px;
-    color: white;
-}
+// Event listeners
+uploadArea.addEventListener('click', () => {
+    fileInput.click();
+});
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-}
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = '#4cc9f0';
+    uploadArea.style.backgroundColor = 'rgba(76, 201, 240, 0.2)';
+});
 
-header {
-    text-align: center;
-    padding: 30px 0;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    margin-bottom: 30px;
-    backdrop-filter: blur(10px);
-}
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = '#ffffff';
+    uploadArea.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+});
 
-h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-    color: #fff;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = '#ffffff';
+    uploadArea.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    
+    if (e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+    }
+});
 
-.subtitle {
-    font-size: 1.2rem;
-    opacity: 0.9;
-}
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleFiles(e.target.files);
+    }
+});
 
-.main-content {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-}
+extractBtn.addEventListener('click', startProcessing);
+downloadExcelBtn.addEventListener('click', downloadExcel);
 
-.upload-section {
-    flex: 1;
-    min-width: 300px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 20px;
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
-}
-
-.preview-section {
-    flex: 2;
-    min-width: 400px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 20px;
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
-}
-
-.upload-area {
-    border: 2px dashed #fff;
-    border-radius: 10px;
-    padding: 30px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 20px;
-    position: relative;
-}
-
-.upload-area:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: scale(1.02);
-}
-
-.upload-icon {
-    font-size: 3rem;
-    margin-bottom: 15px;
-}
-
-.file-input {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-}
-
-.btn {
-    background: linear-gradient(45deg, #4cc9f0, #4361ee);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 30px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.3s ease;
-    display: inline-block;
-    margin-top: 10px;
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
-}
-
-.btn:active {
-    transform: translateY(0);
-}
-
-.preview-container {
-    position: relative;
-    width: 100%;
-    height: 400px;
-    overflow: auto;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 10px;
-    padding: 15px;
-}
-
-.preview-image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-}
-
-.extracted-data {
-    margin-top: 20px;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 20px;
-    border-radius: 10px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.data-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-    margin-bottom: 5px;
-}
-
-.label {
-    font-weight: bold;
-    color: #4cc9f0;
-}
-
-.value {
-    color: #ffffff;
-    word-break: break-all;
-}
-
-.status {
-    text-align: center;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    margin-top: 20px;
-    font-weight: bold;
-}
-
-.loading {
-    display: none;
-    text-align: center;
-    padding: 20px;
-}
-
-.loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 5px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top: 5px solid #4cc9f0;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 15px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.success-message {
-    color: #4ade80;
-    font-weight: bold;
-    text-align: center;
-    padding: 10px;
-    background: rgba(74, 222, 128, 0.2);
-    border-radius: 5px;
-    margin-top: 10px;
-}
-
-.error-message {
-    color: #ef4444;
-    font-weight: bold;
-    text-align: center;
-    padding: 10px;
-    background: rgba(239, 68, 68, 0.2);
-    border-radius: 5px;
-    margin-top: 10px;
-}
-
-.excel-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.stats {
-    margin-top: 20px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-}
-
-.stat-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 0;
-}
-
-.file-list {
-    margin-top: 15px;
-    padding: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 5px;
-    max-height: 150px;
-    overflow-y: auto;
-}
-
-.file-item {
-    padding: 8px;
-    margin: 5px 0;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 5px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.file-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex-grow: 1;
-    margin-right: 10px;
-}
-
-.file-status {
-    font-size: 0.8rem;
-    padding: 3px 8px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.file-status.processing {
-    background: #4cc9f0;
-    color: #000;
-}
-
-.file-status.completed {
-    background: #4ade80;
-    color: #000;
-}
-
-.file-status.error {
-    background: #ef4444;
-    color: #fff;
-}
-
-@media (max-width: 768px) {
-    .main-content {
-        flex-direction: column;
+// Funciones principales
+function handleFiles(files) {
+    selectedFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+    
+    if (selectedFiles.length === 0) {
+        showMessage('No se seleccionaron imágenes válidas', 'error');
+        return;
     }
     
-    .upload-section, .preview-section {
-        min-width: 100%;
+    // Limpiar lista de archivos
+    fileList.innerHTML = '<h4>Archivos seleccionados:</h4>';
+    noFiles.style.display = 'none';
+    
+    // Mostrar archivos en la lista
+    selectedFiles.forEach((file, index) => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'file-item';
+        fileItem.dataset.index = index;
+        
+        const fileName = document.createElement('span');
+        fileName.className = 'file-name';
+        fileName.textContent = file.name;
+        
+        const fileStatus = document.createElement('span');
+        fileStatus.className = 'file-status';
+        fileStatus.textContent = 'Pendiente';
+        fileStatus.dataset.index = index;
+        
+        fileItem.appendChild(fileName);
+        fileItem.appendChild(fileStatus);
+        fileList.appendChild(fileItem);
+    });
+    
+    showMessage(`Se seleccionaron ${selectedFiles.length} imágenes`, 'success');
+}
+
+function startProcessing() {
+    if (selectedFiles.length === 0) {
+        showMessage('Por favor selecciona al menos una imagen', 'error');
+        return;
     }
     
-    h1 {
-        font-size: 2rem;
+    // Resetear estado
+    processingIndex = 0;
+    extractedDataList = [];
+    updateStats();
+    downloadExcelBtn.style.display = 'none';
+    
+    // Procesar la primera imagen
+    processNextImage();
+}
+
+function processNextImage() {
+    if (processingIndex >= selectedFiles.length) {
+        // Terminó el procesamiento
+        loading.style.display = 'none';
+        extractBtn.disabled = false;
+        showMessage('¡Procesamiento completado!', 'success');
+        if (extractedDataList.length > 0) {
+            downloadExcelBtn.style.display = 'inline-block';
+        }
+        return;
     }
+    
+    // Mostrar estado de carga
+    loading.style.display = 'block';
+    extractBtn.disabled = true;
+    message.innerHTML = '';
+    
+    // Actualizar estado del archivo actual
+    updateFileStatus(processingIndex, 'processing');
+    
+    // Cargar la imagen
+    const file = selectedFiles[processingIndex];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        currentImage = e.target.result;
+        previewImage.src = currentImage;
+        previewImage.style.display = 'block';
+        noImage.style.display = 'none';
+        
+        // Simulación de OCR - ahora con datos únicos por imagen
+        setTimeout(() => {
+            processImageOCR(file, processingIndex);
+        }, 1500);
+    };
+    reader.readAsDataURL(file);
+}
+
+function processImageOCR(file, fileIndex) {
+    // Generar datos únicos para cada imagen basados en el índice y nombre del archivo
+    const baseData = {
+        "Ctto": generateRandomCtto(fileIndex),
+        "Solicitante": generateRandomName(fileIndex),
+        "Telefono": generateRandomPhone(fileIndex),
+        "Fallecido": generateRandomDeceased(fileIndex),
+        "Tipo de Servicio": generateRandomServiceType(fileIndex),
+        "Fecha de Solicitud": generateRandomDate(fileIndex, -5, 0),
+        "Fecha Entrega": generateRandomDate(fileIndex, 0, 5),
+        "Lugar de Entrega": generateRandomLocation(fileIndex),
+        "Hora de Entrega": generateRandomTime(fileIndex),
+        "Sala": generateRandomRoom(fileIndex),
+        "Coordinador": generateRandomCoordinator(fileIndex),
+        "Tamaño": generateRandomSize(fileIndex),
+        "Modelo de Marco": generateRandomFrameModel(fileIndex),
+        "Modelo de Fondo": generateRandomBackground(fileIndex),
+        "Retoques": generateRandomRetouches(fileIndex),
+        "PRECIO Bs.": generateRandomPrice(fileIndex)
+    };
+    
+    // Agregar a la lista de datos extraídos
+    extractedDataList.push(baseData);
+    
+    // Mostrar los datos extraídos
+    displayExtractedData(baseData);
+    
+    // Actualizar estado del archivo
+    updateFileStatus(fileIndex, 'completed');
+    
+    // Actualizar estadísticas
+    updateStats();
+    
+    // Procesar siguiente imagen
+    processingIndex++;
+    processNextImage();
+}
+
+// Funciones para generar datos únicos por imagen
+function generateRandomCtto(index) {
+    return (154251188 + index).toString();
+}
+
+function generateRandomName(index) {
+    const names = [
+        "JAIME GUSTAVO ROCA VARGAS",
+        "MARIA ELENA TORREZ MENDOZA",
+        "CARLOS ALBERTO QUISPE FLORES",
+        "ANA LUCIA MAMANI PEREZ",
+        "ROBERTO FERNANDEZ GUTIERREZ",
+        "LUCIA PATRICIA VARGAS ROJAS",
+        "JUAN PABLO MENDOZA QUISPE",
+        "SILVIA ELENA FLORES MAMANI",
+        "EDUARDO TORREZ FERNANDEZ",
+        "PATRICIA GUTIERREZ VARGAS"
+    ];
+    return names[index % names.length];
+}
+
+function generateRandomPhone(index) {
+    return `7741900${index % 10}`;
+}
+
+function generateRandomDeceased(index) {
+    const deceased = [
+        "SELVY PINTO RODRIGUEZ YDA. DE MONTERO",
+        "JUAN CARLOS MAMANI FLORES",
+        "MARIA ELENA QUISPE TORREZ",
+        "ROBERTO FERNANDEZ GUTIERREZ",
+        "ANA LUCIA VARGAS MENDOZA",
+        "CARLOS ALBERTO PEREZ MAMANI",
+        "LUCIA PATRICIA ROJAS QUISPE",
+        "JUAN PABLO FLORES TORREZ",
+        "SILVIA ELENA GUTIERREZ VARGAS",
+        "EDUARDO MENDOZA FERNANDEZ"
+    ];
+    return deceased[index % deceased.length];
+}
+
+function generateRandomServiceType(index) {
+    const services = ["ESMERALDA ABIERTO", "DIAMANTE CERRADO", "RUBI ESPECIAL", "ZAFIRO PREMIUM", "TOPACIO ESTANDAR"];
+    return services[index % services.length];
+}
+
+function generateRandomDate(index, minDays, maxDays) {
+    const today = new Date();
+    const randomDays = minDays + (index % (maxDays - minDays + 1));
+    const newDate = new Date(today);
+    newDate.setDate(today.getDate() + randomDays);
+    return newDate.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+}
+
+function generateRandomLocation(index) {
+    const locations = ["2DO ANILLO", "AV. HEROES DEL CHACO", "CALLE COMERCIO", "PLAZA MURILLO", "AV. ARCE", "ZONA SUR", "CENTRO", "NORTE"];
+    return locations[index % locations.length];
+}
+
+function generateRandomTime(index) {
+    const hours = 8 + (index % 12);
+    const minutes = (index * 15) % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+function generateRandomRoom(index) {
+    const rooms = ["HORIZONTE", "CELESTE", "AURORA", "ESTELAR", "INFANTIL", "FAMILIAR", "PREMIUM", "VIP"];
+    return rooms[index % rooms.length];
+}
+
+function generateRandomCoordinator(index) {
+    const coordinators = ["PATRICIA FLORES", "CARLOS MAMANI", "ANA TORREZ", "ROBERTO QUISPE", "LUCIA GUTIERREZ", "JUAN PEREZ", "SILVIA MENDOZA", "EDUARDO VARGAS"];
+    return coordinators[index % coordinators.length];
+}
+
+function generateRandomSize(index) {
+    const sizes = ["16*22", "20*26", "30*42", "50*40", "50*60", "50*80"];
+    return sizes[index % sizes.length];
+}
+
+function generateRandomFrameModel(index) {
+    const models = ["A1", "A2", "B1", "B2", "C1", "C2", "0", "3", "4"];
+    return models[index % models.length];
+}
+
+function generateRandomBackground(index) {
+    const backgrounds = ["QUE COMBINE MEJOR", "FONDO BLANCO", "FONDO NEGRO", "TONOS CÁLIDOS", "TONOS FRÍOS", "CELESTE SUAVE", "GRIS PLATA", "DORADO"];
+    return backgrounds[index % backgrounds.length];
+}
+
+function generateRandomRetouches(index) {
+    const retouches = [
+        "RECORTAR COMO SEA YEA MEJOR, NITIDEZ",
+        "MEJORAR CONTRASTE, ENFOCAR",
+        "AJUSTAR BRILLO, SUAVIZAR",
+        "CORREGIR COLOR, RECORTAR",
+        "ENFATIZAR DETALLES, NITIDEZ",
+        "AJUSTAR SATURACIÓN, RECORTAR",
+        "MEJORAR DEFINICIÓN, ENFOCAR",
+        "SUAVIZAR BORDES, AJUSTAR"
+    ];
+    return retouches[index % retouches.length];
+}
+
+function generateRandomPrice(index) {
+    return (300 + (index * 10)).toString();
+}
+
+function updateFileStatus(index, status) {
+    const statusElements = document.querySelectorAll(`.file-status[data-index="${index}"]`);
+    statusElements.forEach(element => {
+        element.textContent = status === 'processing' ? 'Procesando...' : 
+                            status === 'completed' ? 'Completado' : 'Error';
+        element.className = `file-status ${status}`;
+    });
+}
+
+function displayExtractedData(data) {
+    extractedData.innerHTML = '';
+    
+    for (const [key, value] of Object.entries(data)) {
+        const dataItem = document.createElement('div');
+        dataItem.className = 'data-item';
+        
+        const label = document.createElement('span');
+        label.className = 'label';
+        label.textContent = key + ':';
+        
+        const valueSpan = document.createElement('span');
+        valueSpan.className = 'value';
+        valueSpan.textContent = value;
+        
+        dataItem.appendChild(label);
+        dataItem.appendChild(valueSpan);
+        extractedData.appendChild(dataItem);
+    }
+}
+
+function updateStats() {
+    processedCount.textContent = extractedDataList.length;
+    totalRecords.textContent = extractedDataList.length;
+    stats.style.display = 'block';
+}
+
+function downloadExcel() {
+    // Crear contenido del archivo Excel (CSV)
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    // Encabezados
+    const headers = Object.keys(extractedDataList[0]);
+    csvContent += headers.join(',') + '\n';
+    
+    // Datos
+    extractedDataList.forEach(item => {
+        const row = headers.map(header => {
+            // Escapar comillas dobles y añadir comillas si contiene comas
+            let value = item[header] || '';
+            if (value.toString().includes(',')) {
+                value = `"${value}"`;
+            }
+            return value;
+        }).join(',');
+        csvContent += row + '\n';
+    });
+    
+    // Crear enlace de descarga
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'datos_lienzos_bolivia.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showMessage('Archivo Excel descargado correctamente', 'success');
+}
+
+function showMessage(text, type) {
+    message.innerHTML = `<div class="${type}-message">${text}</div>`;
+    setTimeout(() => {
+        message.innerHTML = '';
+    }, 3000);
 }
