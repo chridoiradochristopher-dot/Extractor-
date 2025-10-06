@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extractor de Texto - Lienzos Bolivia</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📄 Extractor de Texto - Lienzos Bolivia</h1>
+            <p class="subtitle">Extrae datos de formularios de solicitud de lienzos con OCR rápido y eficiente</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📁</div>
+                    <p>Arrastra y suelta tus imágenes aquí o haz clic para seleccionar</p>
+                    <input type="file" id="fileInput" class="file-input" accept="image/*" multiple>
+                </div>
+                
+                <button class="btn" id="extractBtn">Procesar Imágenes</button>
+                <button class="btn" id="downloadExcelBtn" style="display: none;">Descargar Excel</button>
+                
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Procesando imagen... Por favor espera</p>
+                </div>
+                
+                <div id="message"></div>
+                
+                <div class="stats" id="stats" style="display: none;">
+                    <h3>Estadísticas</h3>
+                    <div class="stat-item">
+                        <span>Imágenes procesadas:</span>
+                        <span id="processedCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span>Total registros:</span>
+                        <span id="totalRecords">0</span>
+                    </div>
+                </div>
+                
+                <div class="file-list" id="fileList">
+                    <h4>Archivos seleccionados:</h4>
+                    <p id="noFiles" style="text-align: center; padding: 10px; color: rgba(255, 255, 255, 0.6);">No se han seleccionado archivos</p>
+                </div>
+            </div>
+            
+            <div class="preview-section">
+                <h2>Preview de Imagen</h2>
+                <div class="preview-container">
+                    <img id="previewImage" class="preview-image" src="" alt="Preview de la imagen" style="display: none;">
+                    <p id="noImage" style="text-align: center; padding: 20px; color: rgba(255, 255, 255, 0.6);">No se ha cargado ninguna imagen</p>
+                </div>
+                
+                <h2 style="margin-top: 20px;">Datos Extraídos</h2>
+                <div class="extracted-data" id="extractedData">
+                    <p style="text-align: center; color: rgba(255, 255, 255, 0.6);">Los datos extraídos aparecerán aquí</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
