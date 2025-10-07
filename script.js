@@ -256,7 +256,7 @@ function generateRandomCoordinator(index) {
 }
 
 function generateRandomSize(index) {
-    const sizes = ["16*22", "20*26", "30*42", "50*40", "50*60", "50*80"];
+    const sizes = ["16*22", "20*27", "30*42", "50*40", "50*60", "50*80"];
     return sizes[index % sizes.length];
 }
 
@@ -326,7 +326,7 @@ function updateStats() {
 
 function downloadExcel() {
     // Crear contenido del archivo Excel (CSV)
-    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Agrega BOM para UTF-8
+    let csvContent = "text/csv;charset=utf-8,\uFEFF"; // Agrega BOM para UTF-8
     
     // Encabezados
     const headers = Object.keys(extractedDataList[0]);
