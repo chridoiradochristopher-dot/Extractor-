@@ -181,23 +181,22 @@ function processNextImage() {
     reader.readAsDataURL(file);
 }
 
-// Preprocesar imagen para mejorar OCR
+// Preprocesar imagen para mejorar OCR (sin CORS)
 async function preprocessImage(imageUrl) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = "Anonymous";
         img.onload = () => {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            // Escalar a 1500px de ancho para mejor OCR
+            // Escalar a 1500px de ancho
             const scale = 1500 / img.width;
             canvas.width = img.width * scale;
             canvas.height = img.height * scale;
             
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             
-            // Convertir a blanco y negro (binarización simple)
+            // Convertir a blanco y negro
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             
