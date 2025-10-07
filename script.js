@@ -149,7 +149,9 @@ function processNextImage() {
                 { 
                     logger: m => console.log(m),
                     tessjs_create_pdf: false,
-                    tessjs_pdf_resolution: 300
+                    tessjs_pdf_resolution: 300,
+                    tessjs_enable_page_segmentation: true,
+                    tessjs_page_seg_mode: 6 // Assume a single uniform block of text
                 }
             );
             
@@ -181,7 +183,7 @@ function processNextImage() {
     reader.readAsDataURL(file);
 }
 
-// Preprocesar imagen para mejorar OCR (sin CORS)
+// Preprocesar imagen para mejorar OCR (versión sin CORS)
 async function preprocessImage(imageUrl) {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -196,7 +198,7 @@ async function preprocessImage(imageUrl) {
             
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             
-            // Convertir a blanco y negro
+            // Convertir a blanco y negro (binarización simple)
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             
@@ -240,12 +242,12 @@ function extractAndValidateFields(text) {
         "PRECIO Bs.": ""
     };
 
-    // Buscar cada campo por palabras clave
+    // Buscar cada campo por palabras clave (con tolerancia a errores)
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i].toUpperCase(); // Normalizar a mayúsculas
 
         // Ctto
-        if (line.includes("CTTO:") || line.includes("CTTO")) {
+        if (line.includes("CTTO:") || line.includes("CTTO") || line.includes("CONTRATO")) {
             data.Ctto = extractValue(line, "CTTO:");
         }
 
@@ -255,12 +257,12 @@ function extractAndValidateFields(text) {
         }
 
         // Telefono
-        if (line.includes("TELEFONO") || line.includes("TELÉFONO")) {
+        if (line.includes("TELEFONO") || line.includes("TELÉFONO") || line.includes("CELULAR")) {
             data.Telefono = extractValue(line, "TELEFONO:");
         }
 
         // Fallecido
-        if (line.includes("FALLECIDO:") || line.includes("FALLECIDO")) {
+        if (line.includes("FALLECIDO:") || line.includes("FALLECIDO") || line.includes("NOMBRE DEL FALLECIDO")) {
             data.Fallecido = extractValue(line, "FALLECIDO:");
         }
 
@@ -270,22 +272,22 @@ function extractAndValidateFields(text) {
         }
 
         // Fecha de Solicitud
-        if (line.includes("FECHA DE SOLICITUD")) {
+        if (line.includes("FECHA DE SOLICITUD") || line.includes("FECHA SOLICITUD")) {
             data["Fecha de Solicitud"] = extractValue(line, "FECHA DE SOLICITUD:");
         }
 
         // Fecha Entrega
-        if (line.includes("FECHA ENTREGA")) {
+        if (line.includes("FECHA ENTREGA") || line.includes("FECHA DE ENTREGA")) {
             data["Fecha Entrega"] = extractValue(line, "FECHA ENTREGA:");
         }
 
         // Lugar de Entrega
-        if (line.includes("LUGAR DE ENTREGA")) {
+        if (line.includes("LUGAR DE ENTREGA") || line.includes("LUGAR ENTREGA")) {
             data["Lugar de Entrega"] = extractValue(line, "LUGAR DE ENTREGA:");
         }
 
         // Hora de Entrega
-        if (line.includes("HORA DE ENTREGA")) {
+        if (line.includes("HORA DE ENTREGA") || line.includes("HORA ENTREGA")) {
             data["Hora de Entrega"] = extractValue(line, "HORA DE ENTREGA:");
         }
 
@@ -300,29 +302,29 @@ function extractAndValidateFields(text) {
         }
 
         // Tamaño
-        if (line.includes("TAMAÑO") || line.includes("TAMANO")) {
+        if (line.includes("TAMAÑO") || line.includes("TAMANO") || line.includes("SIZE")) {
             let size = extractValue(line, "TAMAÑO:");
             data.Tamaño = validateSize(size);
         }
 
         // Modelo de Marco
-        if (line.includes("MODELO DE MARCO")) {
+        if (line.includes("MODELO DE MARCO") || line.includes("MARCO")) {
             let model = extractValue(line, "MODELO DE MARCO:");
             data["Modelo de Marco"] = validateFrameModel(model);
         }
 
         // Modelo de Fondo
-        if (line.includes("MODELO DE FONDO")) {
+        if (line.includes("MODELO DE FONDO") || line.includes("FONDO")) {
             data["Modelo de Fondo"] = extractValue(line, "MODELO DE FONDO:");
         }
 
         // Retoques
-        if (line.includes("RETOQUES")) {
+        if (line.includes("RETOQUES") || line.includes("AJUSTES")) {
             data.Retoques = extractValue(line, "RETOQUES:");
         }
 
         // PRECIO Bs.
-        if (line.includes("PRECIO BS.") || line.includes("PRECIO BS")) {
+        if (line.includes("PRECIO BS.") || line.includes("PRECIO BS") || line.includes("COSTO")) {
             data["PRECIO Bs."] = extractValue(line, "PRECIO BS.:");
         }
     }
