@@ -18,6 +18,10 @@ const totalRecords = document.getElementById('totalRecords');
 const fileList = document.getElementById('fileList');
 const noFiles = document.getElementById('noFiles');
 
+// Valores permitidos
+const VALID_SIZES = ["16*22", "20*27", "30*42", "50*40", "50*60", "50*80"];
+const VALID_FRAME_MODELS = ["A1", "A2", "B1", "B2", "C1", "C2", "0", "3", "4"];
+
 // Event listeners
 uploadArea.addEventListener('click', () => {
     fileInput.click();
@@ -128,164 +132,325 @@ function processNextImage() {
     // Cargar la imagen
     const file = selectedFiles[processingIndex];
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = async function(e) {
         currentImage = e.target.result;
         previewImage.src = currentImage;
         previewImage.style.display = 'block';
         noImage.style.display = 'none';
         
-        // Simulación de OCR - ahora con datos únicos por imagen
-        setTimeout(() => {
-            processImageOCR(file, processingIndex);
-        }, 1500);
+        try {
+            // Preprocesar la imagen para mejorar OCR
+            const processedImage = await preprocessImage(currentImage);
+            
+            // Usar Tesseract.js para extraer texto
+            const { data: { text } } = await Tesseract.recognize(
+                processedImage,
+                'spa', // Idioma español
+                { 
+                    logger: m => console.log(m),
+                    tessjs_create_pdf: false,
+                    tessjs_pdf_resolution: 300
+                }
+            );
+            
+            // Extraer y validar datos del texto reconocido
+            const extractedData = extractAndValidateFields(text);
+            
+            // Guardar los datos extraídos
+            extractedDataList.push(extractedData);
+            
+            // Mostrar los datos extraídos
+            displayExtractedData(extractedData);
+            
+            // Actualizar estado del archivo
+            updateFileStatus(processingIndex, 'completed');
+            
+            // Actualizar estadísticas
+            updateStats();
+            
+        } catch (error) {
+            showMessage('Error al procesar la imagen con OCR', 'error');
+            console.error('Error OCR:', error);
+            updateFileStatus(processingIndex, 'error');
+        }
+        
+        // Procesar siguiente imagen
+        processingIndex++;
+        processNextImage();
     };
     reader.readAsDataURL(file);
 }
 
-function processImageOCR(file, fileIndex) {
-    // Generar datos únicos para cada imagen basados en el índice y nombre del archivo
-    const baseData = {
-        "Ctto": generateRandomCtto(fileIndex),
-        "Solicitante": generateRandomName(fileIndex),
-        "Telefono": generateRandomPhone(fileIndex),
-        "Fallecido": generateRandomDeceased(fileIndex),
-        "Tipo de Servicio": generateRandomServiceType(fileIndex),
-        "Fecha de Solicitud": generateRandomDate(fileIndex, -5, 0),
-        "Fecha Entrega": generateRandomDate(fileIndex, 0, 5),
-        "Lugar de Entrega": generateRandomLocation(fileIndex),
-        "Hora de Entrega": generateRandomTime(fileIndex),
-        "Sala": generateRandomRoom(fileIndex),
-        "Coordinador": generateRandomCoordinator(fileIndex),
-        "Tamaño": generateRandomSize(fileIndex),
-        "Modelo de Marco": generateRandomFrameModel(fileIndex),
-        "Modelo de Fondo": generateRandomBackground(fileIndex),
-        "Retoques": generateRandomRetouches(fileIndex),
-        "PRECIO Bs.": generateRandomPrice(fileIndex)
+// Preprocesar imagen para mejorar OCR
+async function preprocessImage(imageUrl) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Escalar a 1500px de ancho para mejor OCR
+            const scale = 1500 / img.width;
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Convertir a blanco y negro (binarización simple)
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            for (let i = 0; i < data.length; i += 4) {
+                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                const value = avg > 128 ? 255 : 0;
+                data[i] = value;
+                data[i + 1] = value;
+                data[i + 2] = value;
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = reject;
+        img.src = imageUrl;
+    });
+}
+
+// Extraer y validar campos del texto
+function extractAndValidateFields(text) {
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    let data = {
+        "Ctto": "",
+        "Solicitante": "",
+        "Telefono": "",
+        "Fallecido": "",
+        "Tipo de Servicio": "",
+        "Fecha de Solicitud": "",
+        "Fecha Entrega": "",
+        "Lugar de Entrega": "",
+        "Hora de Entrega": "",
+        "Sala": "",
+        "Coordinador": "",
+        "Tamaño": "",
+        "Modelo de Marco": "",
+        "Modelo de Fondo": "",
+        "Retoques": "",
+        "PRECIO Bs.": ""
     };
+
+    // Buscar cada campo por palabras clave
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].toUpperCase(); // Normalizar a mayúsculas
+
+        // Ctto
+        if (line.includes("CTTO:") || line.includes("CTTO")) {
+            data.Ctto = extractValue(line, "CTTO:");
+        }
+
+        // Solicitante
+        if (line.includes("SOLICITANTE") && !line.includes("FALLECIDO")) {
+            data.Solicitante = extractValue(line, "SOLICITANTE");
+        }
+
+        // Telefono
+        if (line.includes("TELEFONO") || line.includes("TELÉFONO")) {
+            data.Telefono = extractValue(line, "TELEFONO:");
+        }
+
+        // Fallecido
+        if (line.includes("FALLECIDO:") || line.includes("FALLECIDO")) {
+            data.Fallecido = extractValue(line, "FALLECIDO:");
+        }
+
+        // Tipo de Servicio
+        if (line.includes("TIPO DE SERVICIO")) {
+            data["Tipo de Servicio"] = extractValue(line, "TIPO DE SERVICIO:");
+        }
+
+        // Fecha de Solicitud
+        if (line.includes("FECHA DE SOLICITUD")) {
+            data["Fecha de Solicitud"] = extractValue(line, "FECHA DE SOLICITUD:");
+        }
+
+        // Fecha Entrega
+        if (line.includes("FECHA ENTREGA")) {
+            data["Fecha Entrega"] = extractValue(line, "FECHA ENTREGA:");
+        }
+
+        // Lugar de Entrega
+        if (line.includes("LUGAR DE ENTREGA")) {
+            data["Lugar de Entrega"] = extractValue(line, "LUGAR DE ENTREGA:");
+        }
+
+        // Hora de Entrega
+        if (line.includes("HORA DE ENTREGA")) {
+            data["Hora de Entrega"] = extractValue(line, "HORA DE ENTREGA:");
+        }
+
+        // Sala
+        if (line.includes("SALA")) {
+            data.Sala = extractValue(line, "SALA:");
+        }
+
+        // Coordinador
+        if (line.includes("COORDINADOR")) {
+            data.Coordinador = extractValue(line, "COORDINADOR:");
+        }
+
+        // Tamaño
+        if (line.includes("TAMAÑO") || line.includes("TAMANO")) {
+            let size = extractValue(line, "TAMAÑO:");
+            data.Tamaño = validateSize(size);
+        }
+
+        // Modelo de Marco
+        if (line.includes("MODELO DE MARCO")) {
+            let model = extractValue(line, "MODELO DE MARCO:");
+            data["Modelo de Marco"] = validateFrameModel(model);
+        }
+
+        // Modelo de Fondo
+        if (line.includes("MODELO DE FONDO")) {
+            data["Modelo de Fondo"] = extractValue(line, "MODELO DE FONDO:");
+        }
+
+        // Retoques
+        if (line.includes("RETOQUES")) {
+            data.Retoques = extractValue(line, "RETOQUES:");
+        }
+
+        // PRECIO Bs.
+        if (line.includes("PRECIO BS.") || line.includes("PRECIO BS")) {
+            data["PRECIO Bs."] = extractValue(line, "PRECIO BS.:");
+        }
+    }
+
+    // Validar y corregir campos si es necesario
+    data = validateAndCorrectData(data);
+
+    return data;
+}
+
+// Extraer valor después de una clave
+function extractValue(line, key) {
+    let value = line.replace(key, '').trim();
+    // Limpiar caracteres innecesarios
+    value = value.replace(/[^a-zA-Z0-9\s\*\-\:\.\/]/g, '').trim();
+    return value || "";
+}
+
+// Validar tamaño
+function validateSize(size) {
+    if (!size) return "";
     
-    // Agregar a la lista de datos extraídos
-    extractedDataList.push(baseData);
+    // Correcciones comunes
+    size = size.replace(/\s+/g, ''); // Quitar espacios
+    size = size.replace(/x/gi, '*'); // Reemplazar x por *
+    size = size.replace(/[^0-9\*]/g, ''); // Solo números y *
+
+    // Si tiene formato de tamaño (ej: 20*27)
+    if (/^\d+\*\d+$/.test(size)) {
+        // Verificar si coincide con alguno de los permitidos
+        const closest = findClosestSize(size);
+        return closest || size;
+    }
+
+    // Si no es un tamaño válido, devolver vacío
+    return "";
+}
+
+// Encontrar el tamaño más cercano
+function findClosestSize(input) {
+    const inputParts = input.split('*').map(Number);
+    if (inputParts.length !== 2) return null;
+
+    let bestMatch = null;
+    let minDistance = Infinity;
+
+    for (const validSize of VALID_SIZES) {
+        const validParts = validSize.split('*').map(Number);
+        const distance = Math.abs(validParts[0] - inputParts[0]) + Math.abs(validParts[1] - inputParts[1]);
+        if (distance < minDistance) {
+            minDistance = distance;
+            bestMatch = validSize;
+        }
+    }
+
+    return bestMatch;
+}
+
+// Validar modelo de marco
+function validateFrameModel(model) {
+    if (!model) return "";
+
+    // Normalizar
+    model = model.trim().toUpperCase();
+    model = model.replace(/\s+/g, ''); // Quitar espacios
+    model = model.replace(/-/g, ''); // Quitar guiones
+
+    // Correcciones comunes
+    if (model === "A1" || model === "A-1" || model === "A 1") return "A1";
+    if (model === "A2" || model === "A-2" || model === "A 2") return "A2";
+    if (model === "B1" || model === "B-1" || model === "B 1") return "B1";
+    if (model === "B2" || model === "B-2" || model === "B 2") return "B2";
+    if (model === "C1" || model === "C-1" || model === "C 1") return "C1";
+    if (model === "C2" || model === "C-2" || model === "C 2") return "C2";
+
+    // Si coincide exactamente con uno de los permitidos
+    if (VALID_FRAME_MODELS.includes(model)) {
+        return model;
+    }
+
+    // Devolver el primero que coincida parcialmente
+    for (const valid of VALID_FRAME_MODELS) {
+        if (model.includes(valid)) {
+            return valid;
+        }
+    }
+
+    return ""; // No válido
+}
+
+// Validar y corregir datos generales
+function validateAndCorrectData(data) {
+    // Validar teléfono (solo números, 8 dígitos)
+    if (data.Telefono) {
+        data.Telefono = data.Telefono.replace(/\D/g, '').slice(0, 8);
+    }
+
+    // Validar precio (solo números)
+    if (data["PRECIO Bs."]) {
+        data["PRECIO Bs."] = data["PRECIO Bs."].replace(/\D/g, '');
+    }
+
+    // Validar fechas (formato DD-MM-YY o DD-MM-YYYY)
+    if (data["Fecha de Solicitud"]) {
+        data["Fecha de Solicitud"] = formatDate(data["Fecha de Solicitud"]);
+    }
+    if (data["Fecha Entrega"]) {
+        data["Fecha Entrega"] = formatDate(data["Fecha Entrega"]);
+    }
+
+    return data;
+}
+
+// Formatear fecha
+function formatDate(dateStr) {
+    if (!dateStr) return "";
     
-    // Mostrar los datos extraídos
-    displayExtractedData(baseData);
+    // Eliminar caracteres no numéricos
+    dateStr = dateStr.replace(/[^\d]/g, '');
     
-    // Actualizar estado del archivo
-    updateFileStatus(fileIndex, 'completed');
+    if (dateStr.length === 6) { // DDMMYY
+        return `${dateStr.slice(0,2)}-${dateStr.slice(2,4)}-${dateStr.slice(4,6)}`;
+    } else if (dateStr.length === 8) { // DDMMYYYY
+        return `${dateStr.slice(0,2)}-${dateStr.slice(2,4)}-${dateStr.slice(4,8)}`;
+    }
     
-    // Actualizar estadísticas
-    updateStats();
-    
-    // Procesar siguiente imagen
-    processingIndex++;
-    processNextImage();
-}
-
-// Funciones para generar datos únicos por imagen
-function generateRandomCtto(index) {
-    return (154251188 + index).toString();
-}
-
-function generateRandomName(index) {
-    const names = [
-        "JAIME GUSTAVO ROCA VARGAS",
-        "MARIA ELENA TORREZ MENDOZA",
-        "CARLOS ALBERTO QUISPE FLORES",
-        "ANA LUCIA MAMANI PEREZ",
-        "ROBERTO FERNANDEZ GUTIERREZ",
-        "LUCIA PATRICIA VARGAS ROJAS",
-        "JUAN PABLO MENDOZA QUISPE",
-        "SILVIA ELENA FLORES MAMANI",
-        "EDUARDO TORREZ FERNANDEZ",
-        "PATRICIA GUTIERREZ VARGAS"
-    ];
-    return names[index % names.length];
-}
-
-function generateRandomPhone(index) {
-    return `7741900${index % 10}`;
-}
-
-function generateRandomDeceased(index) {
-    const deceased = [
-        "SELVY PINTO RODRIGUEZ YDA. DE MONTERO",
-        "JUAN CARLOS MAMANI FLORES",
-        "MARIA ELENA QUISPE TORREZ",
-        "ROBERTO FERNANDEZ GUTIERREZ",
-        "ANA LUCIA VARGAS MENDOZA",
-        "CARLOS ALBERTO PEREZ MAMANI",
-        "LUCIA PATRICIA ROJAS QUISPE",
-        "JUAN PABLO FLORES TORREZ",
-        "SILVIA ELENA GUTIERREZ VARGAS",
-        "EDUARDO MENDOZA FERNANDEZ"
-    ];
-    return deceased[index % deceased.length];
-}
-
-function generateRandomServiceType(index) {
-    const services = ["ESMERALDA ABIERTO", "DIAMANTE CERRADO", "RUBI ESPECIAL", "ZAFIRO PREMIUM", "TOPACIO ESTANDAR"];
-    return services[index % services.length];
-}
-
-function generateRandomDate(index, minDays, maxDays) {
-    const today = new Date();
-    const randomDays = minDays + (index % (maxDays - minDays + 1));
-    const newDate = new Date(today);
-    newDate.setDate(today.getDate() + randomDays);
-    return newDate.toLocaleDateString('es-BO', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-}
-
-function generateRandomLocation(index) {
-    const locations = ["2DO ANILLO", "AV. HEROES DEL CHACO", "CALLE COMERCIO", "PLAZA MURILLO", "AV. ARCE", "ZONA SUR", "CENTRO", "NORTE"];
-    return locations[index % locations.length];
-}
-
-function generateRandomTime(index) {
-    const hours = 8 + (index % 12);
-    const minutes = (index * 15) % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-}
-
-function generateRandomRoom(index) {
-    const rooms = ["HORIZONTE", "CELESTE", "AURORA", "ESTELAR", "INFANTIL", "FAMILIAR", "PREMIUM", "VIP"];
-    return rooms[index % rooms.length];
-}
-
-function generateRandomCoordinator(index) {
-    const coordinators = ["PATRICIA FLORES", "CARLOS MAMANI", "ANA TORREZ", "ROBERTO QUISPE", "LUCIA GUTIERREZ", "JUAN PEREZ", "SILVIA MENDOZA", "EDUARDO VARGAS"];
-    return coordinators[index % coordinators.length];
-}
-
-function generateRandomSize(index) {
-    const sizes = ["16*22", "20*27", "30*42", "50*40", "50*60", "50*80"];
-    return sizes[index % sizes.length];
-}
-
-function generateRandomFrameModel(index) {
-    const models = ["A1", "A2", "B1", "B2", "C1", "C2", "0", "3", "4"];
-    return models[index % models.length];
-}
-
-function generateRandomBackground(index) {
-    const backgrounds = ["QUE COMBINE MEJOR", "FONDO BLANCO", "FONDO NEGRO", "TONOS CÁLIDOS", "TONOS FRÍOS", "CELESTE SUAVE", "GRIS PLATA", "DORADO"];
-    return backgrounds[index % backgrounds.length];
-}
-
-function generateRandomRetouches(index) {
-    const retouches = [
-        "RECORTAR COMO SEA YEA MEJOR, NITIDEZ",
-        "MEJORAR CONTRASTE, ENFOCAR",
-        "AJUSTAR BRILLO, SUAVIZAR",
-        "CORREGIR COLOR, RECORTAR",
-        "ENFATIZAR DETALLES, NITIDEZ",
-        "AJUSTAR SATURACIÓN, RECORTAR",
-        "MEJORAR DEFINICIÓN, ENFOCAR",
-        "SUAVIZAR BORDES, AJUSTAR"
-    ];
-    return retouches[index % retouches.length];
-}
-
-function generateRandomPrice(index) {
-    return (300 + (index * 10)).toString();
+    return dateStr; // Devolver como está si no se puede formatear
 }
 
 function updateFileStatus(index, status) {
