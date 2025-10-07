@@ -256,12 +256,12 @@ function generateRandomCoordinator(index) {
 }
 
 function generateRandomSize(index) {
-    const sizes = ["30*42", "25*35", "40*50", "20*30", "35*45", "45*60", "28*40", "32*48"];
+    const sizes = ["16*22", "20*26", "30*42", "50*40", "50*60", "50*80"];
     return sizes[index % sizes.length];
 }
 
 function generateRandomFrameModel(index) {
-    const models = ["B 2", "A 1", "C 3", "D 4", "E 5", "F 6", "G 7", "H 8"];
+    const models = ["A1", "A2", "B1", "B2", "C1", "C2", "0", "3", "4"];
     return models[index % models.length];
 }
 
@@ -326,7 +326,7 @@ function updateStats() {
 
 function downloadExcel() {
     // Crear contenido del archivo Excel (CSV)
-    let csvContent = "data:text/csv;charset=utf-8,";
+    let csvContent = "text/csv;charset=utf-8,";
     
     // Encabezados
     const headers = Object.keys(extractedDataList[0]);
