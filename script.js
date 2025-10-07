@@ -326,7 +326,7 @@ function updateStats() {
 
 function downloadExcel() {
     // Crear contenido del archivo Excel (CSV)
-    let csvContent = "text/csv;charset=utf-8,";
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Agrega BOM para UTF-8
     
     // Encabezados
     const headers = Object.keys(extractedDataList[0]);
@@ -335,10 +335,10 @@ function downloadExcel() {
     // Datos
     extractedDataList.forEach(item => {
         const row = headers.map(header => {
-            // Escapar comillas dobles y añadir comillas si contiene comas
             let value = item[header] || '';
-            if (value.toString().includes(',')) {
-                value = `"${value}"`;
+            // Escapar comillas dobles y envolver en comillas si contiene comas
+            if (value.toString().includes(',') || value.toString().includes('"')) {
+                value = `"${value.toString().replace(/"/g, '""')}"`;
             }
             return value;
         }).join(',');
